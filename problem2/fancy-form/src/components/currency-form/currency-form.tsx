@@ -1,8 +1,19 @@
-import {Form, Wrapper, Label, ErrorMessage, Input, Button, SwapResult} from "./styled-currency-form.ts";
-import {useForm} from "react-hook-form";
+import {
+  StyledButton,
+  StyledCurrenciesContainer,
+  StyledForm, StyledSelectContainer, StyledSwapButton,
+  StyledTitle,
+  StyledWrapper
+} from "./styled-currency-form.ts";
+import {Controller, useForm} from "react-hook-form";
 import {FC, useState} from "react";
 import {Token} from "../../app";
 import {getTokenIcon} from "../../utils/get-token-icon.ts";
+import {Select, SelectOption} from "../form-components/select/select.tsx";
+import {Input} from "../form-components/input/input.tsx";
+import SwapIcon from '../../icons/swap-icon.svg';
+import {TokenIcon} from "./token-icon.tsx";
+import {FormResult} from "./form-result.tsx";
 
 interface FormInputs {
   tokenFrom: string;
@@ -11,11 +22,32 @@ interface FormInputs {
 }
 
 export const CurrencyForm: FC<{ tokens: Token[] }> = ({tokens}) => {
-  const [swapResult, setSwapResult] = useState('');
+  const [result, setResult] = useState<string>();
 
-  const {register, handleSubmit, watch, formState: {errors}} = useForm<FormInputs>();
-  const tokenFrom = watch('tokenFrom')
-  const tokenTo = watch('tokenTo')
+  const {
+    handleSubmit,
+    watch,
+    control,
+    setValue,
+    formState: {errors}
+  } = useForm<FormInputs>();
+  let tokenFrom = watch('tokenFrom')
+  let tokenTo = watch('tokenTo')
+
+  const tokenOptions: SelectOption[] = tokens.map((token, index) => ({
+    /* In future better add id to token object and not use index as a key anymore */
+    id: index.toString(),
+    value: token.currency,
+    label: token.currency,
+  }));
+
+  const swapTokens = () => {
+    if (tokenTo && tokenFrom) {
+      setValue('tokenFrom', tokenTo)
+      setValue('tokenTo', tokenFrom)
+      result && handleSubmit(onSubmit)();
+    }
+  };
 
   const onSubmit = (data: FormInputs) => {
     const {tokenFrom, tokenTo, amount} = data;
@@ -23,62 +55,97 @@ export const CurrencyForm: FC<{ tokens: Token[] }> = ({tokens}) => {
     const tokenToPrice = tokens.find(token => token.currency === tokenTo)?.price;
 
     if (!tokenFromPrice || !tokenToPrice) {
-      setSwapResult('Invalid token selection.');
+      setResult(undefined);
       return;
     }
 
     const amountToReceive = (amount * tokenFromPrice) / tokenToPrice;
-    setSwapResult(`You will receive ${amountToReceive.toFixed(4)} ${tokenTo}`);
+    setResult(amountToReceive.toFixed(4));
   };
 
   return (
-    <Wrapper>
-      <h3>Currency Swap</h3>
-      <Form onSubmit={handleSubmit(onSubmit)}>
-        <Label htmlFor="tokenFrom">From Currency</Label>
-        {tokenFrom ? <img src={getTokenIcon(tokens.find(token => token.currency === tokenFrom)?.currency as string)}
-                          alt={'token-icon'}/> : null}
-        <select id="tokenFrom" {...register('tokenFrom', {required: 'Please select a token'})}>
-          <option value="">Select a token</option>
-          {/* In future better not use index as a key when object contains id */}
-          {tokens.map((token, index) => (
-            <option key={index} value={token.currency}>
-              {token.currency}
-            </option>
-          ))}
-        </select>
-        {errors.tokenFrom && <ErrorMessage>{errors.tokenFrom.message}</ErrorMessage>}
+    <StyledWrapper>
+      <StyledTitle>Currency Converter</StyledTitle>
 
-        <Label htmlFor="tokenTo">To Currency</Label>
-        {tokenTo ? <img src={getTokenIcon(tokens.find(token => token.currency === tokenTo)?.currency as string)}
-                        alt={'token-icon'}/> : null}
-        <select id="tokenTo" {...register('tokenTo', {required: 'Please select a token'})}>
-          <option value="">Select a token</option>
-          {/* In future better not use index as a key when object contains id */}
-          {tokens.map((token, index) => (
-            <option key={index} value={token.currency}>
-              {token.currency}
-            </option>
-          ))}
-        </select>
-        {errors.tokenTo && <ErrorMessage>{errors.tokenTo.message}</ErrorMessage>}
+      <StyledForm onSubmit={handleSubmit(onSubmit)}>
+        <StyledCurrenciesContainer>
 
-        <Label htmlFor="amount">Amount to send</Label>
-        <Input
-          id="amount"
-          type="number"
-          step="0.01"
-          {...register('amount', {
+          <StyledSelectContainer>
+            <TokenIcon
+              token={tokenFrom}
+              src={getTokenIcon(tokens.find(token => token.currency === tokenFrom)?.currency as string)}
+            />
+            <Controller
+              name={'tokenFrom'}
+              control={control}
+              rules={{required: 'Please select a token'}}
+              render={({field,}) => (
+                <Select
+                  {...field}
+                  defaultOptionLabel={'Select...'}
+                  options={tokenOptions.filter(option => option.value !== tokenTo)}
+                  error={errors.tokenFrom?.message}
+                />
+              )}
+            />
+          </StyledSelectContainer>
+
+          <StyledSwapButton onClick={(e) => {
+            e.preventDefault();
+            swapTokens();
+          }}>
+            <img src={SwapIcon} alt={'Swap'}/>
+          </StyledSwapButton>
+
+          <StyledSelectContainer>
+            <Controller
+              name={'tokenTo'}
+              control={control}
+              rules={{required: 'Please select a token'}}
+              render={({field}) => (
+                <Select
+                  {...field}
+                  defaultOptionLabel={'Select...'}
+                  options={tokenOptions.filter(option => option.value !== tokenFrom)}
+                  error={errors.tokenTo?.message}
+                />
+              )}
+            />
+            <TokenIcon
+              token={tokenTo}
+              src={getTokenIcon(tokens.find(token => token.currency === tokenTo)?.currency as string)}
+            />
+          </StyledSelectContainer>
+        </StyledCurrenciesContainer>
+
+        <Controller
+          name={'amount'}
+          control={control}
+          rules={{
             required: 'Please enter an amount',
-            min: {value: 0.01, message: 'Amount must be greater than 0'}
-          })}
+            min: {
+              value: 0.01,
+              message: 'Amount must be greater than 0'
+            }
+          }}
+          render={
+            ({field}) => (
+              <Input
+                {...field}
+                placeholder={'Enter an amount here'}
+                type="number"
+                step="0.01"
+                error={errors.amount?.message}
+              />
+            )
+          }
         />
-        {errors.amount && <ErrorMessage>{errors.amount.message}</ErrorMessage>}
 
-        <Button type="submit">CONFIRM SWAP</Button>
-      </Form>
+        <StyledButton type="submit">CONFIRM</StyledButton>
 
-      {swapResult && <SwapResult>{swapResult}</SwapResult>}
-    </Wrapper>
+      </StyledForm>
+
+      {result && <FormResult result={result} token={tokenTo}/>}
+    </StyledWrapper>
   );
 };
