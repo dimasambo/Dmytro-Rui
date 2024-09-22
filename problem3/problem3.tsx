@@ -1,8 +1,11 @@
-import React, { useMemo } from 'react';
+import React, {useMemo} from 'react';
 
 interface WalletBalance {
+  // Added id to map data
+  id: string;
   currency: string;
   amount: number;
+  blockchain: string;
 }
 
 // Better extend the WalletBalance
@@ -11,10 +14,11 @@ interface FormattedWalletBalance extends WalletBalance {
   formatted: string;
 }
 
-interface Props extends BoxProps {}
+interface Props extends BoxProps {
+}
 
-// Better to use enum, it makes the
-// blockchain priorities much easier to maintain
+// Better to use enum, it makes the blockchain
+// priorities much easier to maintain
 enum BlockchainPriority {
   Osmosis = 100,
   Ethereum = 50,
@@ -24,18 +28,16 @@ enum BlockchainPriority {
   Default = -99,
 }
 
-const WalletPage: React.FC<Props> = ({ children, ...rest }) => {
+const WalletPage: React.FC<Props> = ({children, ...rest}) => {
   const balances = useWalletBalances();
   const prices = usePrices();
 
-  // I assume we have type for blockchain
-  const getPriority = (blockchain: BlockchainType): number => {
-    return BlockchainPriority[blockchain] ?? BlockchainPriority.Default;
+  const getPriority = (blockchain: string): number => {
+    return BlockchainPriority[blockchain as keyof typeof BlockchainPriority] ?? BlockchainPriority.Default;
   };
 
-  // Here we are directly returning filtered and
-  // sorted balances, so readability is better
-  // and no nested conditions.
+  // Here we are directly returning filtered and sorted balances,
+  // so readability is better and no nested conditions.
   // Removed unnecessary lhsPriority check in favor of a clearer condition.
   const sortedBalances = useMemo(() => {
     return balances
@@ -63,14 +65,14 @@ const WalletPage: React.FC<Props> = ({ children, ...rest }) => {
 
   return (
     <div {...rest}>
-      {formattedBalances.map((balance: FormattedWalletBalance, index: number) => {
+      {formattedBalances.map((balance: FormattedWalletBalance) => {
         const usdValue = prices[balance.currency] * balance.amount;
         return (
           <WalletRow
             className={classes.row}
-            /* Better not use index as a key ensuring,
-            because React handles rendering less efficiently. */
-            key={balance.currency}
+            /* Better not use index as a key, because
+            React handles rendering less efficiently. */
+            key={balance.id}
             amount={balance.amount}
             usdValue={usdValue}
             formattedAmount={balance.formatted}
